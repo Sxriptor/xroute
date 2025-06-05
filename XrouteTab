@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XRoute - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            width: 80px;
+        }
+        
+        .sidebar.collapsed .nav-text {
+            display: none;
+        }
+        
+        .sidebar.collapsed .logo-text {
+            display: none;
+        }
+        
+        .sidebar.collapsed .user-info {
+            display: none;
+        }
+        
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+        }
+        
+        .route-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .map-container {
+            height: 100%;
+            border-radius: 0.75rem;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            border-radius: 3px;
+            background-color: #1e293b;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .hamburger {
+            transition: all 0.3s ease;
+        }
+        
+        .hamburger.active {
+            transform: rotate(90deg);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                z-index: 100;
+                width: 250px;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0 !important;
+            }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        .route-tabs {
+            display: flex;
+            border-bottom: 1px solid #374151;
+            margin-bottom: 1rem;
+        }
+        
+        .route-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .route-tab::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+        
+        .route-tab.active::after {
+            transform: scaleX(1);
+        }
+        
+        .route-tab.active {
+            color: #8b5cf6;
+        }
+        
+        .route-tab:hover:not(.active) {
+            border-bottom-color: #4b5563;
+        }
+        
+        /* Enhanced Sidebar nav item gradients */
+        .nav-item {
+            position: relative;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(to bottom, 
+                #6366f1, 
+                #8b5cf6, 
+                #d946ef, 
+                #ec4899, 
+                #f43f5e);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .nav-item.active::before {
+            opacity: 1;
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(90deg, 
+                rgba(99, 102, 241, 0.15), 
+                rgba(139, 92, 246, 0.1), 
+                rgba(217, 70, 239, 0.05));
+            box-shadow: inset 0 0 15px rgba(99, 102, 241, 0.2);
+        }
+        
+        .nav-item.active .nav-icon {
+            background: linear-gradient(45deg, 
+                #6366f1, 
+                #8b5cf6, 
+                #d946ef);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        /* Mapbox marker styling */
+        .mapboxgl-marker {
+            cursor: pointer;
+        }
+        
+        .mapboxgl-popup {
+            max-width: 200px;
+        }
+        
+        .mapboxgl-popup-content {
+            background: #1f2937;
+            color: white;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mapboxgl-popup-close-button {
+            color: white;
+            font-size: 16px;
+            padding: 4px 8px;
+        }
+        
+        /* Animation for tab content */
+        .route-tab-content {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Enhanced welcome banner */
+        .welcome-banner {
+            background: linear-gradient(135deg, 
+                #6366f1, 
+                #8b5cf6, 
+                #d946ef, 
+                #ec4899);
+            background-size: 300% 300%;
+            animation: gradientBG 15s ease infinite;
+        }
+        
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div class="sidebar bg-gray-800 text-gray-300 w-64 flex-shrink-0 flex flex-col border-r border-gray-700">
+            <!-- Logo -->
+            <div class="p-4 flex items-center space-x-2 border-b border-gray-700">
+                <i class="fas fa-route text-2xl text-purple-500"></i>
+                <span class="logo-text text-xl font-bold">XRoute</span>
+            </div>
+            
+            <!-- User Profile -->
+            <div class="p-4 flex items-center space-x-3 border-b border-gray-700 user-info">
+                <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User" class="w-10 h-10 rounded-full">
+                <div>
+                    <div class="font-medium">Mike_Rider</div>
+                    <div class="text-xs text-gray-400">Premium Member</div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex-1 overflow-y-auto py-4">
+                <div class="space-y-1 px-3">
+                    <button onclick="showDashboardTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-white active w-full text-left">
+                        <i class="fas fa-home text-lg nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </button>
+                    <button onclick="showMyRoutesTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                        <i class="fas fa-map-marked-alt text-lg nav-icon"></i>
+                        <span class="nav-text">My Routes</span>
+                    </button>
+                    <button onclick="showRoutePlannerTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                        <i class="fas fa-route text-lg nav-icon"></i>
+                        <span class="nav-text">Route Planner</span>
+                    </button>
+                    <button onclick="showCommunityTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                        <i class="fas fa-users text-lg nav-icon"></i>
+                        <span class="nav-text">Community</span>
+                    </button>
+                    <button onclick="showEventsTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                        <i class="fas fa-calendar-alt text-lg nav-icon"></i>
+                        <span class="nav-text">Events</span>
+                        <span class="ml-auto bg-purple-500 text-white text-xs px-2 py-1 rounded-full">3</span>
+                    </button>
+                    <button onclick="showGalleryTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                        <i class="fas fa-camera text-lg nav-icon"></i>
+                        <span class="nav-text">Gallery</span>
+                    </button>
+                </div>
+                
+                <div class="px-3 mt-8">
+                    <div class="text-xs uppercase font-bold text-gray-500 mb-2 px-3 nav-text">Settings</div>
+                    <div class="space-y-1">
+                        <button onclick="showSettingsTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                            <i class="fas fa-cog text-lg nav-icon"></i>
+                            <span class="nav-text">Settings</span>
+                        </button>
+                        <button onclick="showSafetyTab()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                            <i class="fas fa-shield-alt text-lg nav-icon"></i>
+                            <span class="nav-text">Safety</span>
+                        </button>
+                        <button onclick="confirmLogout()" class="nav-item flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition w-full text-left">
+                            <i class="fas fa-sign-out-alt text-lg nav-icon"></i>
+                            <span class="nav-text">Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Collapse Button -->
+            <div class="p-4 border-t border-gray-700 flex justify-center">
+                <button id="sidebar-toggle" class="text-gray-400 hover:text-white transition">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content flex-1 flex flex-col overflow-hidden ml-0 transition-all duration-300">
+            <!-- Top Navigation -->
+            <header class="bg-gray-800 border-b border-gray-700">
+                <div class="flex items-center justify-between p-4">
+                    <!-- Mobile Menu Button -->
+                    <button id="mobile-menu-button" class="md:hidden text-gray-400 hover:text-white hamburger">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    
+                    <!-- Search Bar -->
+                    <div class="hidden md:flex items-center bg-gray-700 rounded-lg px-3 py-2 flex-1 max-w-md mx-4">
+                        <i class="fas fa-search text-gray-500 mr-2"></i>
+                        <input type="text" placeholder="Search routes, users..." class="bg-transparent border-none focus:outline-none text-white w-full">
+                    </div>
+                    
+                    <!-- Right Icons -->
+                    <div class="flex items-center space-x-4">
+                        <button class="relative text-gray-400 hover:text-white">
+                            <i class="fas fa-bell text-xl"></i>
+                            <span class="notification-badge">3</span>
+                        </button>
+                        <button class="relative text-gray-400 hover:text-white">
+                            <i class="fas fa-envelope text-xl"></i>
+                            <span class="notification-badge">5</span>
+                        </button>
+                        <div class="hidden md:flex items-center space-x-2">
+                            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="User" class="w-8 h-8 rounded-full">
+                            <span class="text-sm">Mike_Rider</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Tab Content Container -->
+            <main class="flex-1 overflow-y-auto p-4 bg-gray-900">
+                
+                <!-- Dashboard Tab Content -->
+                <div id="dashboard-content" class="tab-content">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner rounded-xl p-6 mb-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold mb-2">Welcome back, Mike!</h1>
+                            <p class="text-gray-200">You've completed 12 rides this month. Keep exploring!</p>
+                        </div>
+                        <button class="mt-4 md:mt-0 bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-6 py-2 rounded-lg transition">
+                            Plan New Route
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="stats-card bg-gray-800 p-6 rounded-xl border border-gray-700 transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-gray-400 text-sm">Total Rides</div>
+                                <div class="text-2xl font-bold mt-1">87</div>
+                            </div>
+                            <div class="bg-purple-500 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-route text-purple-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>This month</span>
+                                <span>12</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 60%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card bg-gray-800 p-6 rounded-xl border border-gray-700 transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-gray-400 text-sm">Miles Covered</div>
+                                <div class="text-2xl font-bold mt-1">2,450</div>
+                            </div>
+                            <div class="bg-blue-500 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-tachometer-alt text-blue-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>This month</span>
+                                <span>320</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 45%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card bg-gray-800 p-6 rounded-xl border border-gray-700 transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-gray-400 text-sm">Saved Routes</div>
+                                <div class="text-2xl font-bold mt-1">24</div>
+                            </div>
+                            <div class="bg-green-500 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-bookmark text-green-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>This month</span>
+                                <span>3</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 30%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card bg-gray-800 p-6 rounded-xl border border-gray-700 transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-gray-400 text-sm">Community Points</div>
+                                <div class="text-2xl font-bold mt-1">1,250</div>
+                            </div>
+                            <div class="bg-yellow-500 bg-opacity-20 p-3 rounded-full">
+                                <i class="fas fa-trophy text-yellow-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>This month</span>
+                                <span>150</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 25%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Main Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Recent Route Map -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                            <div class="flex justify-between items-center mb-6">
+                                <h2 class="text-xl font-bold">Your Recent Route</h2>
+                                <button class="text-sm text-purple-400 hover:text-purple-300">View Details</button>
+                            </div>
+                            
+                            <div class="h-96 bg-gray-700 rounded-lg overflow-hidden relative">
+                                <!-- Mapbox map container -->
+                                <div id="map" class="map-container"></div>
+                                
+                                <!-- Route overlay info -->
+                                <div class="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900/70 flex items-center justify-center">
+                                    <div class="text-center p-6">
+                                        <h3 class="text-2xl font-bold mb-2">Mountain Pass Challenge</h3>
+                                        <p class="text-gray-300 mb-4">Completed: 2 hours ago</p>
+                                        <div class="grid grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <div class="text-2xl font-bold">85</div>
+                                                <div class="text-sm text-gray-400">Miles</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-2xl font-bold">3.5</div>
+                                                <div class="text-sm text-gray-400">Hours</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-2xl font-bold">4.8</div>
+                                                <div class="text-sm text-gray-400">Rating</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Route markers -->
+                                <div class="absolute top-4 left-4 bg-gray-900 p-2 rounded-lg shadow-md border border-gray-700">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-flag text-green-500 mr-2"></i>
+                                        <span class="font-medium text-sm">Start Point</span>
+                                    </div>
+                                </div>
+                                <div class="absolute top-4 right-4 bg-gray-900 p-2 rounded-lg shadow-md border border-gray-700">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-flag-checkered text-red-500 mr-2"></i>
+                                        <span class="font-medium text-sm">End Point</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 grid grid-cols-3 gap-4">
+                                <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg flex flex-col items-center transition">
+                                    <i class="fas fa-share-alt text-purple-500 mb-1"></i>
+                                    <span class="text-sm">Share</span>
+                                </button>
+                                <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg flex flex-col items-center transition">
+                                    <i class="fas fa-heart text-red-500 mb-1"></i>
+                                    <span class="text-sm">Favorite</span>
+                                </button>
+                                <button class="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg flex flex-col items-center transition">
+                                    <i class="fas fa-download text-blue-500 mb-1"></i>
+                                    <span class="text-sm">Download</span>
+                                </button>
+                            </div>
+
+                            <!-- Speed Stats Row -->
+                            <div class="mt-6 grid grid-cols-3 gap-4">
+                                <div class="bg-gray-800 rounded-lg p-4 flex flex-col items-center border border-gray-700">
+                                    <div class="text-purple-500 text-2xl mb-1">
+                                        <i class="fas fa-tachometer-alt"></i>
+                                    </div>
+                                    <div class="text-sm text-gray-400 mb-1">Avg MPH</div>
+                                    <div class="text-xl font-bold">68.5</div>
+                                </div>
+                                <div class="bg-gray-800 rounded-lg p-4 flex flex-col items-center border border-gray-700">
+                                    <div class="text-blue-500 text-2xl mb-1">
+                                        <i class="fas fa-road"></i>
+                                    </div>
+                                    <div class="text-sm text-gray-400 mb-1">Avg Distance</div>
+                                    <div class="text-xl font-bold">92mi</div>
+                                </div>
+                                <div class="bg-gray-800 rounded-lg p-4 flex flex-col items-center border border-gray-700">
+                                    <div class="text-red-500 text-2xl mb-1">
+                                        <i class="fas fa-bolt"></i>
+                                    </div>
+                                    <div class="text-sm text-gray-400 mb-1">Top Speed</div>
+                                    <div class="text-xl font-bold">112mph</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions & Current Ride -->
+                    <div class="space-y-6">
+                        <!-- Quick Actions -->
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                            <h2 class="text-xl font-bold mb-6">Quick Actions</h2>
+                            <div class="grid grid-cols-2 gap-4">
+                                <button class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex flex-col items-center transition">
+                                    <i class="fas fa-plus-circle text-2xl text-purple-500 mb-2"></i>
+                                    <span class="text-sm">New Route</span>
+                                </button>
+                                <button class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex flex-col items-center transition">
+                                    <i class="fas fa-calendar-plus text-2xl text-blue-500 mb-2"></i>
+                                    <span class="text-sm">Create Event</span>
+                                </button>
+                                <button class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex flex-col items-center transition">
+                                    <i class="fas fa-exclamation-triangle text-2xl text-red-500 mb-2"></i>
+                                    <span class="text-sm">Report Hazard</span>
+                                </button>
+                                <button class="bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex flex-col items-center transition">
+                                    <i class="fas fa-camera text-2xl text-green-500 mb-2"></i>
+                                    <span class="text-sm">Upload Photo</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Favorite Routes -->
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                            <h2 class="text-xl font-bold mb-6">Favorite Routes</h2>
+                            <div class="space-y-4">
+                                <div class="flex items-center p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition cursor-pointer">
+                                    <div class="w-12 h-12 bg-cover bg-center rounded-md mr-3" style="background-image: url('https://images.unsplash.com/photo-1509316785289-025f5b8b4b47?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80');"></div>
+                                    <div class="flex-1">
+                                        <h4 class="font-medium">Coastal Highway</h4>
+                                        <p class="text-xs text-gray-400">120 miles • 4.8★</p>
+                                    </div>
+                                    <i class="fas fa-heart text-red-500"></i>
+                                </div>
+                                
+                                <div class="flex items-center p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition cursor-pointer">
+                                    <div class="w-12 h-12 bg-cover bg-center rounded-md mr-3" style="background-image: url('https://images.unsplash.com/photo-1518604666860-9ed391f76460?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80');"></div>
+                                    <div class="flex-1">
+                                        <h4 class="font-medium">Mountain Pass</h4>
+                                        <p class="text-xs text-gray-400">85 miles • 4.6★</p>
+                                    </div>
+                                    <i class="fas fa-heart text-red-500"></i>
+                                </div>
+                                
+                                <div class="flex items-center p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition cursor-pointer">
+                                    <div class="w-12 h-12 bg-cover bg-center rounded-md mr-3" style="background-image: url('https://images.unsplash.com/photo-1506748686214-e9df14d4d9d9?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80');"></div>
+                                    <div class="flex-1">
+                                        <h4 class="font-medium">Desert Sunset</h4>
+                                        <p class="text-xs text-gray-400">65 miles • 4.9★</p>
+                                    </div>
+                                    <i class="fas fa-heart text-red-500"></i>
+                                </div>
+                            </div>
+                            <button class="mt-4 w-full text-sm text-purple-400 hover:text-purple-300 text-center">
+                                View All Favorites
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Route Tabs -->
+                <div class="mt-6">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                        <div class="route-tabs">
+                            <div class="route-tab active" data-tab="saved">Saved Routes</div>
+                            <div class="route-tab" data-tab="recent">Recent Activity</div>
+                            <div class="route-tab" data-tab="all">All Routes</div>
+                        </div>
+                        
+                        <!-- Saved Routes Tab -->
+                        <div class="route-tab-content" id="saved-tab">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div class="route-card bg-gray-700 rounded-lg overflow-hidden border border-gray-600 transition">
+                                    <div class="h-32 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1509316785289-025f5b8b4b47?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80');"></div>
+                                    <div class="p-4">
+                                        <h3 class="font-bold">Coastal Highway Adventure</h3>
+                                        <p class="text-sm text-gray-400 mt-1">120 miles • Scenic • Moderate</p>
+                                        <div class="mt-3 flex justify-between items-center">
+                                            <div class="flex items-center">
+                                                <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                                <span class="text-sm">4.8 (24)</span>
+                                            </div>
+                                            <button class="text-xs bg-purple-500 hover:bg-purple-600 px-3 py-1 rounded-lg">
+                                                <i class="fas fa-play mr-1"></i> Start
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="route-card bg-gray-700 rounded-lg overflow-hidden border border-gray-600 transition">
+                                    <div class="h-32 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1518604666860-9ed391f76460?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80');"></div>
+                                    <div class="p-4">
+                                        <h3 class="font-bold">Mountain Pass Challenge</h3>
+                                        <p class="text-sm text-gray-400 mt-1">85 miles • Challenging • 3.5h</p>
+                                        <div class="mt-3 flex justify-between items-center">
+                                            <div class="flex items-center">
+                                                <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                                <span class="text-sm">4.6 (18)</span>
+                                            </div>
+                                            <button class="text-xs bg-purple-500 hover:bg-purple-600 px-3 py-1 rounded-lg">
+                                                <i class="fas fa-play mr-1"></i> Start
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="route-card bg-gray-700 rounded-lg overflow-hidden border border-gray-600 transition">
+                                    <div class="h-32 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1506748686214-e9df14d4d9d9?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80');"></div>
+                                    <div class="p-4">
+                                        <h3 class="font-bold">Desert Sunset Run</h3>
+                                        <p class="text-sm text-gray-400 mt-1">65 miles • Easy • Sunset</p>
+                                        <div class="mt-3 flex justify-between items-center">
+                                            <div class="flex items-center">
+                                                <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                                <span class="text-sm">4.9 (32)</span>
+                                            </div>
+                                            <button class="text-xs bg-purple-500 hover:bg-purple-600 px-3 py-1 rounded-lg">
+                                                <i class="fas fa-play mr-1"></i> Start
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Activity Tab -->
+                        <div class="route-tab-content hidden" id="recent-tab">
+                            <div class="space-y-4">
+                                <div class="flex items-start">
+                                    <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="User" class="w-10 h-10 rounded-full mr-3">
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">Sarah_J</span>
+                            <span class="text-xs text-gray-400">2h ago</span>
+                        </div>
+                        <p class="text-gray-300 text-sm mt-1">Commented on your route "Coastal Highway Adventure": "This looks amazing! Adding it to my bucket list."</p>
+                        <div class="mt-2 flex space-x-3">
+                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-reply mr-1"></i> Reply</button>
+                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-heart mr-1"></i> Like</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="border-t border-gray-700 pt-4 flex items-start">
+                    <div class="bg-blue-500 bg-opacity-20 p-2 rounded-full mr-3">
+                        <i class="fas fa-route text-blue-500"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">New Route Completed</span>
+                            <span class="text-xs text-gray-400">5h ago</span>
+                        </div>
+                        <p class="text-gray-300 text-sm mt-1">You completed "Mountain Pass Challenge" - 85 miles, 3.5 hours</p>
+                        <button class="mt-2 text-xs text-blue-400 hover:text-blue-300">View Details</button>
+                    </div>
+                </div>
+                
+                <div class="border-t border-gray-700 pt-4 flex items-start">
+                    <img src="https://randomuser.me/api/portraits/men/22.jpg" alt="User" class="w-10 h-10 rounded-full mr-3">
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">RiderTom</span>
+                            <span class="text-xs text-gray-400">1d ago</span>
+                        </div>
+                        <p class="text-gray-300 text-sm mt-1">Started following you</p>
+                        <div class="mt-2">
+                            <button class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg">Follow Back</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="mt-4 w-full text-sm text-purple-400 hover:text-purple-300 text-center">
+                View All Activity
+            </button>
+        </div>
+        
+        <!-- All Routes Tab -->
+        <div class="route-tab-content hidden" id="all-tab">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-700">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Route</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Distance</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Duration</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        <tr class="hover:bg-gray-700 cursor-pointer">
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 bg-cover bg-center rounded-md" style="background-image: url('https://images.unsplash.com/photo-1509316785289-025f5b8b4b47?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80');"></div>
+                                    <div class="ml-4">
+                                        <div class="font-medium">Coastal Highway</div>
+                                        <div class="text-xs text-gray-400">Scenic Route</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">Jun 15, 2023</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">120 miles</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">4.2 hours</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                    <span>4.8</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-gray-700 cursor-pointer">
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 bg-cover bg-center rounded-md" style="background-image: url('https://images.unsplash.com/photo-1518604666860-9ed391f76460?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80');"></div>
+                                    <div class="ml-4">
+                                        <div class="font-medium">Mountain Pass</div>
+                                        <div class="text-xs text-gray-400">Challenging</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">Jun 10, 2023</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">85 miles</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">3.5 hours</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                    <span>4.6</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-gray-700 cursor-pointer">
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 bg-cover bg-center rounded-md" style="background-image: url('https://images.unsplash.com/photo-1506748686214-e9df14d4d9d9?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80');"></div>
+                                    <div class="ml-4">
+                                        <div class="font-medium">Desert Sunset</div>
+                                        <div class="text-xs text-gray-400">Leisure Ride</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">Jun 5, 2023</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">65 miles</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">2.8 hours</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                    <span>4.9</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <button class="mt-4 w-full text-sm text-purple-400 hover:text-purple-300 text-center">
+                View All Routes
+            </button>
+        </div>
+    </div>
+                </div>
+                </div>
+                <!-- End Dashboard Tab Content -->
+                
+                <!-- My Routes Tab Content -->
+                <div id="myroutes-content" class="tab-content" style="display: none;">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+                        <h1 class="text-2xl font-bold mb-4">My Routes</h1>
+                        <p class="text-gray-300 mb-6">Manage and organize all your saved routes</p>
+                        
+                        <!-- Route Statistics -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-gray-400 text-sm">Total Routes</div>
+                                        <div class="text-2xl font-bold">24</div>
+                                    </div>
+                                    <i class="fas fa-route text-purple-500 text-2xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-gray-400 text-sm">Favorite Routes</div>
+                                        <div class="text-2xl font-bold">8</div>
+                                    </div>
+                                    <i class="fas fa-heart text-red-500 text-2xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-gray-400 text-sm">Shared Routes</div>
+                                        <div class="text-2xl font-bold">12</div>
+                                    </div>
+                                    <i class="fas fa-share text-blue-500 text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Routes List -->
+                        <div class="space-y-4">
+                            <div class="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <img src="https://images.unsplash.com/photo-1509316785289-025f5b8b4b47?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80" alt="Route" class="w-16 h-16 rounded-lg mr-4">
+                                    <div>
+                                        <h3 class="font-bold">Pacific Coast Highway</h3>
+                                        <p class="text-gray-400 text-sm">150 miles • 5.5 hours • Scenic</p>
+                                        <div class="flex items-center mt-1">
+                                            <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                            <span class="text-sm">4.9 (45 reviews)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm">Edit</button>
+                                    <button class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-sm">Share</button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <img src="https://images.unsplash.com/photo-1518604666860-9ed391f76460?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80" alt="Route" class="w-16 h-16 rounded-lg mr-4">
+                                    <div>
+                                        <h3 class="font-bold">Mountain Ridge Trail</h3>
+                                        <p class="text-gray-400 text-sm">85 miles • 3.2 hours • Challenging</p>
+                                        <div class="flex items-center mt-1">
+                                            <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                            <span class="text-sm">4.7 (32 reviews)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm">Edit</button>
+                                    <button class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-sm">Share</button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <img src="https://images.unsplash.com/photo-1506748686214-e9df14d4d9d9?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80" alt="Route" class="w-16 h-16 rounded-lg mr-4">
+                                    <div>
+                                        <h3 class="font-bold">Desert Sunset Loop</h3>
+                                        <p class="text-gray-400 text-sm">65 miles • 2.8 hours • Easy</p>
+                                        <div class="flex items-center mt-1">
+                                            <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                            <span class="text-sm">4.8 (28 reviews)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm">Edit</button>
+                                    <button class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-sm">Share</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Route Planner Tab Content -->
+                <div id="routeplanner-content" class="tab-content" style="display: none;">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+                        <h1 class="text-2xl font-bold mb-4">Route Planner</h1>
+                        <p class="text-gray-300 mb-6">Plan your next adventure with our advanced route planning tools</p>
+                        
+                        <!-- Route Planning Form -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Starting Point</label>
+                                    <input type="text" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white" placeholder="Enter starting location">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Destination</label>
+                                    <input type="text" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white" placeholder="Enter destination">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Route Type</label>
+                                    <select class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                        <option>Scenic Route</option>
+                                        <option>Fastest Route</option>
+                                        <option>Avoid Highways</option>
+                                        <option>Twisty Roads</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Waypoints (Optional)</label>
+                                    <textarea class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white h-20" placeholder="Add waypoints separated by commas"></textarea>
+                                </div>
+                                <button class="w-full bg-purple-500 hover:bg-purple-600 py-3 rounded-lg font-medium">
+                                    <i class="fas fa-route mr-2"></i>Plan Route
+                                </button>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <h3 class="font-bold mb-4">Route Preview</h3>
+                                <div class="h-64 bg-gray-600 rounded-lg flex items-center justify-center">
+                                    <div class="text-center text-gray-400">
+                                        <i class="fas fa-map text-4xl mb-2"></i>
+                                        <p>Route preview will appear here</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Route Templates -->
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                        <h2 class="text-xl font-bold mb-4">Quick Route Templates</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-gray-700 p-4 rounded-lg cursor-pointer hover:bg-gray-600 transition">
+                                <i class="fas fa-mountain text-purple-500 text-2xl mb-2"></i>
+                                <h3 class="font-bold">Mountain Adventure</h3>
+                                <p class="text-gray-400 text-sm">Scenic mountain roads with elevation changes</p>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg cursor-pointer hover:bg-gray-600 transition">
+                                <i class="fas fa-water text-blue-500 text-2xl mb-2"></i>
+                                <h3 class="font-bold">Coastal Cruise</h3>
+                                <p class="text-gray-400 text-sm">Beautiful ocean views and coastal highways</p>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg cursor-pointer hover:bg-gray-600 transition">
+                                <i class="fas fa-city text-green-500 text-2xl mb-2"></i>
+                                <h3 class="font-bold">City Explorer</h3>
+                                <p class="text-gray-400 text-sm">Urban routes with points of interest</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Community Tab Content -->
+                <div id="community-content" class="tab-content" style="display: none;">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+                        <h1 class="text-2xl font-bold mb-4">Community</h1>
+                        <p class="text-gray-300 mb-6">Connect with fellow riders and share your experiences</p>
+                        
+                        <!-- Community Stats -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-gray-700 p-4 rounded-lg text-center">
+                                <div class="text-2xl font-bold text-purple-400">1,247</div>
+                                <div class="text-gray-400 text-sm">Active Members</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg text-center">
+                                <div class="text-2xl font-bold text-blue-400">156</div>
+                                <div class="text-gray-400 text-sm">Routes Shared</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg text-center">
+                                <div class="text-2xl font-bold text-green-400">89</div>
+                                <div class="text-gray-400 text-sm">Active Groups</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg text-center">
+                                <div class="text-2xl font-bold text-yellow-400">432</div>
+                                <div class="text-gray-400 text-sm">Photos Shared</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Activity Feed -->
+                        <div class="space-y-4">
+                            <h2 class="text-xl font-bold">Recent Activity</h2>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-start">
+                                    <img src="https://randomuser.me/api/portraits/women/32.jpg" alt="User" class="w-10 h-10 rounded-full mr-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-medium">Sarah_Rider</span>
+                                            <span class="text-xs text-gray-400">2 hours ago</span>
+                                        </div>
+                                        <p class="text-gray-300 text-sm mt-1">Just completed the Blue Ridge Parkway! What an amazing ride. The views were absolutely breathtaking! 📸🏔️</p>
+                                        <div class="mt-2 flex space-x-4">
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-heart mr-1"></i> 24 likes</button>
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-comment mr-1"></i> 8 comments</button>
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-share mr-1"></i> Share</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-start">
+                                    <img src="https://randomuser.me/api/portraits/men/45.jpg" alt="User" class="w-10 h-10 rounded-full mr-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-medium">TommyBiker</span>
+                                            <span class="text-xs text-gray-400">4 hours ago</span>
+                                        </div>
+                                        <p class="text-gray-300 text-sm mt-1">Anyone know good pit stops along Route 66? Planning a cross-country trip next month!</p>
+                                        <div class="mt-2 flex space-x-4">
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-heart mr-1"></i> 12 likes</button>
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-comment mr-1"></i> 15 comments</button>
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-share mr-1"></i> Share</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-start">
+                                    <img src="https://randomuser.me/api/portraits/women/67.jpg" alt="User" class="w-10 h-10 rounded-full mr-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-medium">BikerChick23</span>
+                                            <span class="text-xs text-gray-400">6 hours ago</span>
+                                        </div>
+                                        <p class="text-gray-300 text-sm mt-1">New route uploaded: "Sunset Canyon Loop" - perfect for evening rides! Check it out 🌅</p>
+                                        <div class="mt-2 flex space-x-4">
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-heart mr-1"></i> 31 likes</button>
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-comment mr-1"></i> 6 comments</button>
+                                            <button class="text-xs text-gray-400 hover:text-white"><i class="fas fa-share mr-1"></i> Share</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Events Tab Content -->
+                <div id="events-content" class="tab-content" style="display: none;">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+                        <h1 class="text-2xl font-bold mb-4">Events</h1>
+                        <p class="text-gray-300 mb-6">Discover and join riding events in your area</p>
+                        
+                        <!-- Upcoming Events -->
+                        <div class="space-y-4">
+                            <h2 class="text-xl font-bold">Upcoming Events</h2>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex">
+                                        <div class="bg-purple-500 text-center p-3 rounded-lg mr-4">
+                                            <div class="text-sm font-bold">JUN</div>
+                                            <div class="text-xl font-bold">25</div>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-lg">Weekend Mountain Ride</h3>
+                                            <p class="text-gray-400 text-sm">Blue Ridge Mountains • 150 miles</p>
+                                            <p class="text-gray-300 text-sm mt-1">Join us for an epic mountain adventure with stunning views!</p>
+                                            <div class="flex items-center mt-2">
+                                                <i class="fas fa-users text-gray-400 mr-2"></i>
+                                                <span class="text-sm text-gray-400">23 riders going</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg text-sm">Join Event</button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex">
+                                        <div class="bg-blue-500 text-center p-3 rounded-lg mr-4">
+                                            <div class="text-sm font-bold">JUL</div>
+                                            <div class="text-xl font-bold">02</div>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-lg">Coastal Highway Cruise</h3>
+                                            <p class="text-gray-400 text-sm">Pacific Coast Highway • 200 miles</p>
+                                            <p class="text-gray-300 text-sm mt-1">Experience the most scenic coastal route in America!</p>
+                                            <div class="flex items-center mt-2">
+                                                <i class="fas fa-users text-gray-400 mr-2"></i>
+                                                <span class="text-sm text-gray-400">45 riders going</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg text-sm">Join Event</button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex">
+                                        <div class="bg-green-500 text-center p-3 rounded-lg mr-4">
+                                            <div class="text-sm font-bold">JUL</div>
+                                            <div class="text-xl font-bold">15</div>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-lg">Desert Night Ride</h3>
+                                            <p class="text-gray-400 text-sm">Mojave Desert • 120 miles</p>
+                                            <p class="text-gray-300 text-sm mt-1">Experience the desert under the stars. Night vision required!</p>
+                                            <div class="flex items-center mt-2">
+                                                <i class="fas fa-users text-gray-400 mr-2"></i>
+                                                <span class="text-sm text-gray-400">12 riders going</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg text-sm">Join Event</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Create Event -->
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                        <h2 class="text-xl font-bold mb-4">Create Your Own Event</h2>
+                        <button class="w-full bg-purple-500 hover:bg-purple-600 py-3 rounded-lg font-medium">
+                            <i class="fas fa-plus mr-2"></i>Create New Event
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Gallery Tab Content -->
+                <div id="gallery-content" class="tab-content" style="display: none;">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+                        <h1 class="text-2xl font-bold mb-4">Gallery</h1>
+                        <p class="text-gray-300 mb-6">Browse and share amazing photos from the community</p>
+                        
+                        <!-- Gallery Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="bg-gray-700 rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Photo" class="w-full h-48 object-cover">
+                                <div class="p-3">
+                                    <h3 class="font-medium">Mountain Sunrise</h3>
+                                    <p class="text-gray-400 text-sm">by Mike_Rider</p>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <div class="flex space-x-2">
+                                            <button class="text-red-500 hover:text-red-400"><i class="fas fa-heart"></i> 24</button>
+                                            <button class="text-gray-400 hover:text-white"><i class="fas fa-comment"></i> 5</button>
+                                        </div>
+                                        <button class="text-gray-400 hover:text-white"><i class="fas fa-download"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Photo" class="w-full h-48 object-cover">
+                                <div class="p-3">
+                                    <h3 class="font-medium">Coastal Curves</h3>
+                                    <p class="text-gray-400 text-sm">by Sarah_Rider</p>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <div class="flex space-x-2">
+                                            <button class="text-red-500 hover:text-red-400"><i class="fas fa-heart"></i> 38</button>
+                                            <button class="text-gray-400 hover:text-white"><i class="fas fa-comment"></i> 12</button>
+                                        </div>
+                                        <button class="text-gray-400 hover:text-white"><i class="fas fa-download"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1502920917128-1aa500764cbd?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Photo" class="w-full h-48 object-cover">
+                                <div class="p-3">
+                                    <h3 class="font-medium">Desert Highway</h3>
+                                    <p class="text-gray-400 text-sm">by TommyBiker</p>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <div class="flex space-x-2">
+                                            <button class="text-red-500 hover:text-red-400"><i class="fas fa-heart"></i> 19</button>
+                                            <button class="text-gray-400 hover:text-white"><i class="fas fa-comment"></i> 3</button>
+                                        </div>
+                                        <button class="text-gray-400 hover:text-white"><i class="fas fa-download"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1558618047-3c8c76ca7d14?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Photo" class="w-full h-48 object-cover">
+                                <div class="p-3">
+                                    <h3 class="font-medium">Urban Night Ride</h3>
+                                    <p class="text-gray-400 text-sm">by BikerChick23</p>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <div class="flex space-x-2">
+                                            <button class="text-red-500 hover:text-red-400"><i class="fas fa-heart"></i> 42</button>
+                                            <button class="text-gray-400 hover:text-white"><i class="fas fa-comment"></i> 8</button>
+                                        </div>
+                                        <button class="text-gray-400 hover:text-white"><i class="fas fa-download"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Photo" class="w-full h-48 object-cover">
+                                <div class="p-3">
+                                    <h3 class="font-medium">Forest Trail</h3>
+                                    <p class="text-gray-400 text-sm">by RiderTom</p>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <div class="flex space-x-2">
+                                            <button class="text-red-500 hover:text-red-400"><i class="fas fa-heart"></i> 27</button>
+                                            <button class="text-gray-400 hover:text-white"><i class="fas fa-comment"></i> 6</button>
+                                        </div>
+                                        <button class="text-gray-400 hover:text-white"><i class="fas fa-download"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Photo" class="w-full h-48 object-cover">
+                                <div class="p-3">
+                                    <h3 class="font-medium">Alpine Vista</h3>
+                                    <p class="text-gray-400 text-sm">by MountainRider</p>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <div class="flex space-x-2">
+                                            <button class="text-red-500 hover:text-red-400"><i class="fas fa-heart"></i> 56</button>
+                                            <button class="text-gray-400 hover:text-white"><i class="fas fa-comment"></i> 15</button>
+                                        </div>
+                                        <button class="text-gray-400 hover:text-white"><i class="fas fa-download"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Upload Section -->
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                        <h2 class="text-xl font-bold mb-4">Share Your Photos</h2>
+                        <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-400 mb-4">Drag and drop your photos here or click to browse</p>
+                            <button class="bg-purple-500 hover:bg-purple-600 px-6 py-2 rounded-lg">Choose Files</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab Content -->
+                <div id="settings-content" class="tab-content" style="display: none;">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+                        <h1 class="text-2xl font-bold mb-4">Settings</h1>
+                        <p class="text-gray-300 mb-6">Manage your account preferences and app settings</p>
+                        
+                        <!-- Account Settings -->
+                        <div class="space-y-6">
+                            <div>
+                                <h2 class="text-xl font-bold mb-4">Account Information</h2>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Username</label>
+                                        <input type="text" value="Mike_Rider" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Email</label>
+                                        <input type="email" value="mike.rider@email.com" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Phone</label>
+                                        <input type="tel" value="+1 (555) 123-4567" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Location</label>
+                                        <input type="text" value="California, USA" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h2 class="text-xl font-bold mb-4">Preferences</h2>
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="font-medium">Email Notifications</div>
+                                            <div class="text-sm text-gray-400">Receive updates about routes and events</div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" checked class="sr-only peer">
+                                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="font-medium">Push Notifications</div>
+                                            <div class="text-sm text-gray-400">Get notified on your device</div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" checked class="sr-only peer">
+                                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="font-medium">Privacy Mode</div>
+                                            <div class="text-sm text-gray-400">Hide your routes from public view</div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer">
+                                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="pt-4">
+                                <button class="bg-purple-500 hover:bg-purple-600 px-6 py-2 rounded-lg mr-4">Save Changes</button>
+                                <button class="bg-gray-600 hover:bg-gray-500 px-6 py-2 rounded-lg">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Safety Tab Content -->
+                <div id="safety-content" class="tab-content" style="display: none;">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+                        <h1 class="text-2xl font-bold mb-4">Safety Center</h1>
+                        <p class="text-gray-300 mb-6">Safety tools and emergency features for riders</p>
+                        
+                        <!-- Emergency Contacts -->
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold mb-4">Emergency Contacts</h2>
+                            <div class="space-y-3">
+                                <div class="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                                    <div>
+                                        <div class="font-medium">Emergency Contact 1</div>
+                                        <div class="text-gray-400 text-sm">Jane Doe - (555) 987-6543</div>
+                                    </div>
+                                    <button class="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm">Edit</button>
+                                </div>
+                                <div class="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                                    <div>
+                                        <div class="font-medium">Emergency Contact 2</div>
+                                        <div class="text-gray-400 text-sm">John Smith - (555) 456-7890</div>
+                                    </div>
+                                    <button class="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm">Edit</button>
+                                </div>
+                                <button class="w-full bg-purple-500 hover:bg-purple-600 py-2 rounded-lg text-sm">
+                                    <i class="fas fa-plus mr-2"></i>Add Emergency Contact
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Safety Features -->
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold mb-4">Safety Features</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-red-500 bg-opacity-20 border border-red-500 p-4 rounded-lg">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-exclamation-triangle text-red-500 text-xl mr-3"></i>
+                                        <h3 class="font-bold">Emergency SOS</h3>
+                                    </div>
+                                    <p class="text-gray-300 text-sm mb-3">Send location and alert to emergency contacts</p>
+                                    <button class="bg-red-500 hover:bg-red-600 w-full py-2 rounded-lg">Activate SOS</button>
+                                </div>
+                                
+                                <div class="bg-blue-500 bg-opacity-20 border border-blue-500 p-4 rounded-lg">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-map-marker-alt text-blue-500 text-xl mr-3"></i>
+                                        <h3 class="font-bold">Share Location</h3>
+                                    </div>
+                                    <p class="text-gray-300 text-sm mb-3">Share real-time location with trusted contacts</p>
+                                    <button class="bg-blue-500 hover:bg-blue-600 w-full py-2 rounded-lg">Start Sharing</button>
+                                </div>
+                                
+                                <div class="bg-green-500 bg-opacity-20 border border-green-500 p-4 rounded-lg">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-route text-green-500 text-xl mr-3"></i>
+                                        <h3 class="font-bold">Safe Route Mode</h3>
+                                    </div>
+                                    <p class="text-gray-300 text-sm mb-3">Plan routes avoiding dangerous areas</p>
+                                    <button class="bg-green-500 hover:bg-green-600 w-full py-2 rounded-lg">Enable</button>
+                                </div>
+                                
+                                <div class="bg-yellow-500 bg-opacity-20 border border-yellow-500 p-4 rounded-lg">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-shield-alt text-yellow-500 text-xl mr-3"></i>
+                                        <h3 class="font-bold">Crash Detection</h3>
+                                    </div>
+                                    <p class="text-gray-300 text-sm mb-3">Automatic emergency alert on crash detection</p>
+                                    <button class="bg-yellow-500 hover:bg-yellow-600 w-full py-2 rounded-lg text-black">Configure</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mapbox map
+        mapboxgl.accessToken = 'pk.eyJ1IjoibW9iYmlucGx1cmUiLCJhIjoiY21iNnN6YWE2MDJ6bTJrcTczYnJ5ZWRnaSJ9.Ihl54oKU4tMUQJ8DOx7xgQ';
+        
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: [-83.8109, 35.5165], // starting position [lng, lat]
+            zoom: 11, // starting zoom
+            interactive: false // disable user interaction
+        });
+        
+        // Add route line
+        map.on('load', () => {
+            map.addSource('route', {
+                'type': 'geojson',
+                'data': {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': [
+                            [-83.85, 35.55],
+                            [-83.82, 35.53],
+                            [-83.80, 35.51],
+                            [-83.78, 35.50],
+                            [-83.75, 35.48]
+                        ]
+                    }
+                }
+            });
+            
+            map.addLayer({
+                'id': 'route',
+                'type': 'line',
+                'source': 'route',
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                'paint': {
+                    'line-color': '#8b5cf6',
+                    'line-width': 4
+                }
+            });
+            
+            // Add start marker
+            new mapboxgl.Marker({
+                color: '#10b981',
+                scale: 0.8
+            })
+            .setLngLat([-83.85, 35.55])
+            .setPopup(new mapboxgl.Popup().setHTML('<div class="text-sm font-medium">Start Point</div>'))
+            .addTo(map);
+            
+            // Add end marker
+            new mapboxgl.Marker({
+                color: '#ef4444',
+                scale: 0.8
+            })
+            .setLngLat([-83.75, 35.48])
+            .setPopup(new mapboxgl.Popup().setHTML('<div class="text-sm font-medium">End Point</div>'))
+            .addTo(map);
+        });
+        
+        // Sidebar toggle
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.querySelector('.main-content');
+        
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            if (sidebar.classList.contains('collapsed')) {
+                sidebarToggle.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                mainContent.classList.add('md:ml-20');
+            } else {
+                sidebarToggle.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                mainContent.classList.remove('md:ml-20');
+            }
+        });
+        
+        // Mobile menu toggle
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        
+        mobileMenuButton.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            mobileMenuButton.classList.toggle('active');
+        });
+        
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && e.target !== mobileMenuButton) {
+                sidebar.classList.remove('active');
+                mobileMenuButton.classList.remove('active');
+            }
+        });
+        
+        // Route tabs functionality
+        const tabs = document.querySelectorAll('.route-tab');
+        const tabContents = document.querySelectorAll('.route-tab-content');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                // Add active class to clicked tab
+                tab.classList.add('active');
+                
+                // Hide all tab contents
+                tabContents.forEach(content => content.classList.add('hidden'));
+                // Show the selected tab content
+                const tabId = tab.getAttribute('data-tab') + '-tab';
+                document.getElementById(tabId).classList.remove('hidden');
+            });
+        });
+        
+        // Tab switching functions
+        function hideAllTabs() {
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => {
+                content.style.display = 'none';
+            });
+        }
+        
+        function setActiveNavItem(activeButton) {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            activeButton.classList.add('active');
+        }
+        
+        function showDashboardTab() {
+            hideAllTabs();
+            document.getElementById('dashboard-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function showMyRoutesTab() {
+            hideAllTabs();
+            document.getElementById('myroutes-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function showRoutePlannerTab() {
+            hideAllTabs();
+            document.getElementById('routeplanner-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function showCommunityTab() {
+            hideAllTabs();
+            document.getElementById('community-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function showEventsTab() {
+            hideAllTabs();
+            document.getElementById('events-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function showGalleryTab() {
+            hideAllTabs();
+            document.getElementById('gallery-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function showSettingsTab() {
+            hideAllTabs();
+            document.getElementById('settings-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function showSafetyTab() {
+            hideAllTabs();
+            document.getElementById('safety-content').style.display = 'block';
+            setActiveNavItem(event.target);
+        }
+        
+        function confirmLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                alert('Logout functionality would be implemented here');
+            }
+        }
+    </script>
+</body>
+</html>
